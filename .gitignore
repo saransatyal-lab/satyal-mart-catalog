@@ -1,5 +1,4 @@
 node_modules/
-server/db/*.json
 server/db/*.tmp
 server/uploads/products/*
 !server/uploads/products/.gitkeep
