@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Satyal Mart — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-wrap" id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="lb-name">Satyal Mart</div>
+      <div class="lb-sub">Admin Dashboard</div>
+    </div>
+    <div class="field">
+      <label>Username</label>
+      <input id="loginUser" type="text" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn-primary full" onclick="doLogin()">Log In</button>
+    <div class="login-hint">Default: <b>admin</b> / <b>satyal123</b> — change this in Settings after logging in.</div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="shell" id="appShell" style="display:none;">
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-name">Satyal Mart</div>
+      <div class="sb-sub">Admin</div>
+    </div>
+    <nav class="sb-nav" id="sbNav">
+      <button class="sb-item active" data-view="dashboard">Dashboard</button>
+      <button class="sb-item" data-view="products">Products</button>
+      <button class="sb-item" data-view="categories">Categories</button>
+      <button class="sb-item" data-view="orders">Orders</button>
+      <button class="sb-item" data-view="customers">Customers</button>
+      <button class="sb-item" data-view="scan">Scan Stock</button>
+      <button class="sb-item" data-view="coupons">Coupons</button>
+      <button class="sb-item" data-view="import">Import Excel</button>
+      <button class="sb-item" data-view="reports">Reports</button>
+      <button class="sb-item" data-view="qr">QR Code</button>
+      <button class="sb-item" data-view="settings">Settings</button>
+    </nav>
+    <button class="sb-logout" onclick="doLogout()">Log Out</button>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="viewTitle">Dashboard</div>
+      <div class="topbar-user" id="topbarUser"></div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<!-- MODAL ROOT -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeModal()">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

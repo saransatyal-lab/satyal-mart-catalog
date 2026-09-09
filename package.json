@@ -1,0 +1,21 @@
+{
+  "name": "satyal-mart",
+  "version": "1.0.0",
+  "description": "QR-based digital shopping & in-store ordering system for Satyal Mart",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "multer": "^2.3.0",
+    "qrcode": "^1.5.4"
+  }
+}
