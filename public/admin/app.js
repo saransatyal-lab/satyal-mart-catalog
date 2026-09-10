@@ -83,7 +83,7 @@ function initNav(){
   });
 }
 function switchView(view){
-  if (scanCameraStream) stopCameraScan();
+  if (html5QrScanner) stopCameraScan();
   document.querySelectorAll('.sb-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('viewTitle').textContent = VIEW_TITLES[view] || '';
   const renderers = {
@@ -543,8 +543,7 @@ async function deleteCustomer(id){
 }
 
 /* ================= SCAN STOCK ================= */
-let scanCameraStream = null;
-let scanLoopActive = false;
+let html5QrScanner = null;
 
 function renderScan(){
   const content = document.getElementById('content');
@@ -553,14 +552,14 @@ function renderScan(){
       <div class="panel-head"><h3>Scan Barcode</h3></div>
       <div class="panel-body">
         <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;">
-          Works with a USB/Bluetooth barcode scanner gun (just scan — it types into the box below and submits automatically), or type the number by hand. Camera scanning is also available if your browser and connection support it.
+          Works with a USB/Bluetooth barcode scanner gun (just scan — it types into the box below and submits automatically), or type the number by hand. Camera scanning also works right in the browser on most phones.
         </p>
         <div class="scan-input-row">
           <input type="text" id="scanInput" placeholder="Scan or type a barcode number…" autofocus>
           <button class="btn-primary" onclick="lookupBarcode()">Look Up</button>
           <button class="btn-secondary" id="cameraToggleBtn" onclick="toggleCameraScan()">📷 Camera</button>
         </div>
-        <video id="scanVideo" style="display:none;width:100%;max-width:360px;border-radius:12px;margin-top:14px;" muted playsinline></video>
+        <div id="scanReader" style="display:none;width:100%;max-width:360px;margin-top:14px;border-radius:12px;overflow:hidden;"></div>
         <div id="scanResult"></div>
       </div>
     </div>
@@ -571,44 +570,45 @@ function renderScan(){
 }
 
 async function toggleCameraScan(){
-  if (scanCameraStream){ stopCameraScan(); return; }
-  if (!('BarcodeDetector' in window)){
-    toast('Camera scanning isn\'t supported in this browser. Use a scanner gun or type the number instead.', true);
+  if (html5QrScanner){ await stopCameraScan(); return; }
+  if (typeof Html5Qrcode === 'undefined'){
+    toast('The camera scanner script failed to load. Try reloading the page.', true);
     return;
   }
+  const readerEl = document.getElementById('scanReader');
+  readerEl.style.display = 'block';
+  html5QrScanner = new Html5Qrcode('scanReader');
+  const formats = [
+    Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.CODABAR, Html5QrcodeSupportedFormats.ITF,
+    Html5QrcodeSupportedFormats.QR_CODE
+  ];
   try{
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    const video = document.getElementById('scanVideo');
-    video.srcObject = stream;
-    video.style.display = 'block';
-    await video.play();
-    scanCameraStream = stream;
-    scanLoopActive = true;
+    await html5QrScanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 140 }, formatsToSupport: formats },
+      async (decodedText) => {
+        document.getElementById('scanInput').value = decodedText;
+        await stopCameraScan();
+        lookupBarcode();
+      },
+      () => { /* fires continuously while no code is found in frame — ignore */ }
+    );
     document.getElementById('cameraToggleBtn').textContent = '⏹ Stop Camera';
-    const detector = new BarcodeDetector({ formats: ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','codabar','itf'] });
-    const loop = async () => {
-      if (!scanLoopActive) return;
-      try{
-        const codes = await detector.detect(video);
-        if (codes.length > 0){
-          document.getElementById('scanInput').value = codes[0].rawValue;
-          stopCameraScan();
-          lookupBarcode();
-          return;
-        }
-      }catch(e){ /* keep trying */ }
-      requestAnimationFrame(loop);
-    };
-    loop();
   }catch(e){
-    toast('Could not access the camera: ' + e.message + ' — over a local http:// address, phone browsers usually block this. Use a scanner gun or manual entry instead.', true);
+    readerEl.style.display = 'none';
+    html5QrScanner = null;
+    toast('Could not start the camera: ' + (e.message || e) + '. Use a scanner gun or manual entry instead.', true);
   }
 }
-function stopCameraScan(){
-  scanLoopActive = false;
-  if (scanCameraStream){ scanCameraStream.getTracks().forEach(t => t.stop()); scanCameraStream = null; }
-  const video = document.getElementById('scanVideo');
-  if (video){ video.style.display = 'none'; video.srcObject = null; }
+async function stopCameraScan(){
+  if (!html5QrScanner) return;
+  try{ await html5QrScanner.stop(); html5QrScanner.clear(); }catch(e){ /* already stopped */ }
+  html5QrScanner = null;
+  const readerEl = document.getElementById('scanReader');
+  if (readerEl){ readerEl.style.display = 'none'; readerEl.innerHTML = ''; }
   const btn = document.getElementById('cameraToggleBtn');
   if (btn) btn.textContent = '📷 Camera';
 }
