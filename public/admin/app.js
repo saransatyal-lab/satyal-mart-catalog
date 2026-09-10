@@ -232,7 +232,7 @@ function openProductModal(p, prefillBarcode){
     </div>
     <input type="hidden" id="pmImagePath" value="${p && p.image_path ? p.image_path : ''}">
     <div class="field-row">
-      <div class="field"><label>SKU</label><input id="pmSku" value="${p?esc(p.sku):''}" placeholder="e.g. SM-0019"></div>
+      <div class="field"><label>SKU <span style="font-weight:600;color:var(--ink-soft);">(optional — auto-generated if left blank)</span></label><input id="pmSku" value="${p?esc(p.sku):''}" placeholder="Leave blank to auto-generate"></div>
       <div class="field"><label>Barcode <span style="font-weight:600;color:var(--ink-soft);">(optional)</span></label><input id="pmBarcode" value="${p&&p.barcode?esc(p.barcode):(prefillBarcode?esc(prefillBarcode):'')}" placeholder="e.g. 8901234500011"></div>
     </div>
     <div class="field"><label>Category</label>
@@ -275,8 +275,9 @@ async function uploadProductImage(input){
 
 async function saveProduct(id){
   const errEl = document.getElementById('pmError');
+  const skuVal = document.getElementById('pmSku').value.trim();
   const body = {
-    sku: document.getElementById('pmSku').value.trim(),
+    sku: skuVal,
     barcode: document.getElementById('pmBarcode').value.trim() || null,
     name: document.getElementById('pmName').value.trim(),
     category_id: document.getElementById('pmCategory').value || null,
@@ -290,8 +291,11 @@ async function saveProduct(id){
     featured: document.getElementById('pmFeatured').checked,
     active: document.getElementById('pmActive').checked,
   };
-  if (!body.sku || !body.name || isNaN(body.regular_price) || isNaN(body.sale_price)){
-    errEl.textContent = 'SKU, name, regular price and sale price are required.'; return;
+  // When editing, leaving SKU blank means "don't touch it" — never send an
+  // empty value that would wipe out the product's existing SKU.
+  if (id && !skuVal) delete body.sku;
+  if (!body.name || isNaN(body.regular_price) || isNaN(body.sale_price)){
+    errEl.textContent = 'Name, regular price and sale price are required.'; return;
   }
   if (body.sale_price > body.regular_price){
     errEl.textContent = 'Sale price cannot be greater than regular price.'; return;

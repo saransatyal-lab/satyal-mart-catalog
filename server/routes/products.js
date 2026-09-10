@@ -37,8 +37,9 @@ router.get('/', (req, res) => {
   const sorters = {
     price_asc: (a, b) => a.sale_price - b.sale_price,
     price_desc: (a, b) => b.sale_price - a.sale_price,
-    discount: (a, b) => (b.regular_price - b.sale_price) - (a.regular_price - a.sale_price),
+    discount: (a, b) => discountPct(b.regular_price, b.sale_price) - discountPct(a.regular_price, a.sale_price),
     newest: (a, b) => new Date(b.created_at) - new Date(a.created_at),
+    name: (a, b) => a.name.localeCompare(b.name),
   };
   list = [...list].sort(sorters[sort] || ((a, b) => (b.featured - a.featured) || a.name.localeCompare(b.name)));
 
@@ -84,18 +85,26 @@ router.get('/admin/barcode/:code', requireAdmin, (req, res) => {
 
 router.post('/admin', requireAdmin, (req, res) => {
   const b = req.body || {};
-  if (!b.sku || !b.name || b.regular_price == null || b.sale_price == null) {
-    return res.status(400).json({ error: 'SKU, name, regular price, and sale price are required.' });
+  if (!b.name || b.regular_price == null || b.sale_price == null) {
+    return res.status(400).json({ error: 'Name, regular price, and sale price are required.' });
   }
-  if (data.products.some(p => p.sku === b.sku.trim())) {
-    return res.status(400).json({ error: 'A product with that SKU already exists.' });
+  const barcode = b.barcode ? b.barcode.trim() : null;
+  if (barcode) {
+    const clash = data.products.find(p => p.barcode === barcode);
+    if (clash) return res.status(400).json({ error: `Barcode ${barcode} is already used by "${clash.name}" (${clash.sku}).` });
   }
-  if (b.barcode && data.products.some(p => p.barcode === b.barcode.trim())) {
-    return res.status(400).json({ error: 'A product with that barcode already exists.' });
+  const id = nextId('products');
+  let sku = b.sku && b.sku.trim() ? b.sku.trim() : `SM-${String(id).padStart(4, '0')}`;
+  const skuClash = data.products.find(p => p.sku === sku);
+  if (skuClash) {
+    if (b.sku && b.sku.trim()) {
+      return res.status(400).json({ error: `SKU ${sku} is already used by "${skuClash.name}". Leave SKU blank to auto-generate one instead.` });
+    }
+    sku = `SM-${String(id).padStart(4, '0')}-${Date.now().toString().slice(-4)}`; // extremely unlikely fallback clash
   }
   const ts = now();
   const product = {
-    id: nextId('products'), sku: b.sku.trim(), name: b.name.trim(), barcode: b.barcode ? b.barcode.trim() : null,
+    id, sku, name: b.name.trim(), barcode,
     category_id: b.category_id ? +b.category_id : null, brand: b.brand || '', description: b.description || '',
     regular_price: b.regular_price, sale_price: b.sale_price, image_path: b.image_path || null,
     stock_qty: b.track_stock ? (b.stock_qty ?? 0) : null, track_stock: b.track_stock ? 1 : 0,
@@ -111,14 +120,23 @@ router.put('/admin/:id', requireAdmin, (req, res) => {
   const p = data.products.find(p => p.id === +req.params.id);
   if (!p) return res.status(404).json({ error: 'Product not found.' });
   const b = req.body || {};
-  if (b.sku !== undefined && b.sku !== p.sku && data.products.some(x => x.sku === b.sku)) {
-    return res.status(400).json({ error: 'A product with that SKU already exists.' });
+
+  // Normalize to strings and trim before comparing — request bodies (especially
+  // anything that ever passed through a spreadsheet) can carry numbers or
+  // stray whitespace that would otherwise cause false "already exists" hits.
+  const newSku = b.sku !== undefined ? String(b.sku).trim() : undefined;
+  const newBarcode = b.barcode !== undefined ? (String(b.barcode).trim() || null) : undefined;
+
+  if (newSku !== undefined && newSku !== p.sku) {
+    const clash = data.products.find(x => x.id !== p.id && x.sku === newSku);
+    if (clash) return res.status(400).json({ error: `SKU ${newSku} is already used by "${clash.name}".` });
   }
-  if (b.barcode !== undefined && b.barcode && b.barcode !== p.barcode && data.products.some(x => x.barcode === b.barcode)) {
-    return res.status(400).json({ error: 'A product with that barcode already exists.' });
+  if (newBarcode !== undefined && newBarcode && newBarcode !== p.barcode) {
+    const clash = data.products.find(x => x.id !== p.id && x.barcode === newBarcode);
+    if (clash) return res.status(400).json({ error: `Barcode ${newBarcode} is already used by "${clash.name}" (${clash.sku}).` });
   }
-  if (b.sku !== undefined) p.sku = b.sku;
-  if (b.barcode !== undefined) p.barcode = b.barcode ? b.barcode.trim() : null;
+  if (newSku !== undefined) p.sku = newSku;
+  if (newBarcode !== undefined) p.barcode = newBarcode;
   if (b.name !== undefined) p.name = b.name;
   if (b.category_id !== undefined) p.category_id = b.category_id ? +b.category_id : null;
   if (b.brand !== undefined) p.brand = b.brand;

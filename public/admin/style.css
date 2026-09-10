@@ -210,5 +210,7 @@ table tr:hover td{background:var(--paper);}
 
 @media (max-width: 860px){
   .stat-grid{grid-template-columns:repeat(2,1fr);}
-  .sidebar{width:210px;}
+  .sidebar{width:70px;}
+  .sb-name,.sb-sub,.sb-item{display:none;}
+  .sb-brand{padding:0 0 18px;}
 }

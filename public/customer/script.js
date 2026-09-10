@@ -25,6 +25,8 @@ let state = {
   categories: ['All'],
   products: [],
   category: 'All',
+  dealsOnly: false,
+  sort: '',
   search: '',
   cart: {},       // productId -> qty
   coupon: null,   // { code, discount }
@@ -45,8 +47,13 @@ async function loadCategories(){
 }
 async function loadProducts(){
   const params = new URLSearchParams();
-  if (state.category !== 'All') params.set('category', state.category);
+  if (state.dealsOnly){
+    params.set('featured', '1');
+  } else if (state.category !== 'All') {
+    params.set('category', state.category);
+  }
   if (state.search) params.set('search', state.search);
+  if (state.sort) params.set('sort', state.sort);
   const res = await fetch(`${API}/products?${params.toString()}`);
   state.products = await res.json();
   renderGrid();
@@ -64,11 +71,15 @@ async function loadSettings(){
 /* ---------------- RENDER: CATEGORIES ---------------- */
 function renderCats(){
   const el = document.getElementById('cats');
-  el.innerHTML = state.categories.map(c =>
-    `<button class="cat-chip ${c===state.category?'active':''}" onclick="setCategory('${c.replace(/'/g,"\\'")}')">${c}</button>`
+  const dealsChip = `<button class="cat-chip deals-chip ${state.dealsOnly?'active':''}" onclick="toggleDeals()">🔥 Deals</button>`;
+  const rest = state.categories.map(c =>
+    `<button class="cat-chip ${!state.dealsOnly && c===state.category?'active':''}" onclick="setCategory('${c.replace(/'/g,"\\'")}')">${c}</button>`
   ).join('');
+  el.innerHTML = dealsChip + rest;
 }
-function setCategory(c){ state.category = c; renderCats(); loadProducts(); }
+function setCategory(c){ state.category = c; state.dealsOnly = false; renderCats(); loadProducts(); }
+function toggleDeals(){ state.dealsOnly = !state.dealsOnly; renderCats(); loadProducts(); }
+function setSort(){ state.sort = document.getElementById('sortSelect').value; loadProducts(); }
 function onSearch(){
   state.search = document.getElementById('searchInput').value;
   clearTimeout(searchDebounce);
@@ -79,7 +90,7 @@ function onSearch(){
 function pct(reg, sale){ return reg > sale ? Math.round(((reg-sale)/reg)*100) : 0; }
 
 function renderGrid(){
-  document.getElementById('sectionTitle').textContent = state.search ? 'Search Results' : state.category;
+  document.getElementById('sectionTitle').textContent = state.search ? 'Search Results' : (state.dealsOnly ? "Today's Deals" : state.category);
   document.getElementById('resultCount').textContent = state.products.length + (state.products.length===1 ? ' item' : ' items');
   const grid = document.getElementById('grid');
   const existingEmpty = document.getElementById('emptyState');
@@ -87,7 +98,7 @@ function renderGrid(){
 
   if (state.products.length === 0){
     grid.innerHTML = '';
-    grid.insertAdjacentHTML('afterend', `<div class="empty" id="emptyState"><svg class="e-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><div>No products match your search.</div></div>`);
+    grid.insertAdjacentHTML('afterend', `<div class="empty" id="emptyState"><svg class="e-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><div>${state.dealsOnly ? 'No deals right now — check back soon, or browse all products.' : 'No products match your search.'}</div></div>`);
     return;
   }
 
